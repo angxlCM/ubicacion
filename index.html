@@ -4,25 +4,83 @@
   <title>GPS Transporte Burrigo</title>
 </head>
 <body>
-  <h3>Enviando ubicación...</h3>
-  <p>Deja esta página abierta para compartir la ubicación.</p>
-  <script>
-    function enviarUbicacion() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(pos) {
-          fetch('https://xangel.pythonanywhere.com/update', {
+  <h3>Enviando ubicación en tiempo real...</h3>
+  <p>Deja esta página abierta y asegúrate de dar permiso de ubicación.</p>
+  <p id="estado">Esperando ubicación...</p> <script>
+    const URL_UPDATE = 'https://xangel.pythonanywhere.com/update';
+    
+    // Función para actualizar el texto de estado en la página
+    function actualizarEstado(mensaje) {
+        document.getElementById('estado').innerText = mensaje;
+    }
+
+    // 1. Función que se llama cuando se obtiene una nueva posición (ÉXITO)
+    function enviarUbicacion(pos) {
+        const data = {
+            latitud: pos.coords.latitude,
+            longitud: pos.coords.longitude,
+            timestamp: new Date().toISOString()
+        };
+
+        actualizarEstado(`Ubicación: ${data.latitud}, ${data.longitud}. Enviando...`);
+
+        // Realiza la solicitud POST a Flask
+        fetch(URL_UPDATE, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-              latitud: pos.coords.latitude,
-              longitud: pos.coords.longitude,
-              timestamp: new Date().toISOString()
-            })
-          });
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (response.ok) {
+                console.log('Ubicación enviada con éxito.');
+                actualizarEstado(`¡Ubicación enviada! Lat: ${data.latitud.toFixed(4)}`);
+            } else {
+                // Si Flask devuelve un error (ej. 500)
+                console.error('Error del servidor Flask:', response.status);
+                actualizarEstado('ERROR: Servidor Flask devolvió un código de error.');
+            }
+        })
+        .catch(error => {
+            // Si hay un error de red, CORS, etc.
+            console.error('Error de red al enviar ubicación:', error);
+            actualizarEstado('ERROR: No se pudo conectar con el servidor.');
         });
-      }
     }
-    setInterval(enviarUbicacion, 1000);
+
+    // 2. Función que se llama si hay un error (ERROR)
+    function manejarError(err) {
+        let mensaje = '';
+        switch(err.code) {
+            case err.PERMISSION_DENIED:
+                mensaje = "ERROR: Permiso de ubicación denegado por el usuario.";
+                break;
+            case err.POSITION_UNAVAILABLE:
+                mensaje = "ERROR: La información de ubicación no está disponible.";
+                break;
+            case err.TIMEOUT:
+                mensaje = "ERROR: Tiempo de espera agotado para obtener la ubicación.";
+                break;
+            default:
+                mensaje = `ERROR desconocido: ${err.message}`;
+        }
+        console.error(mensaje);
+        actualizarEstado(mensaje);
+    }
+
+    // 3. Opciones de configuración (para mayor precisión y eficiencia)
+    const opciones = {
+        enableHighAccuracy: true, // Usa GPS si está disponible
+        maximumAge: 5000,         // Acepta una ubicación de hasta 5 segundos de antigüedad
+        timeout: 10000            // Da 10 segundos para obtener la primera ubicación
+    };
+
+    // INICIO DEL SEGUIMIENTO: Usa watchPosition para seguimiento continuo
+    if (navigator.geolocation) {
+        actualizarEstado("Solicitando permiso de ubicación...");
+        navigator.geolocation.watchPosition(enviarUbicacion, manejarError, opciones);
+    } else {
+        actualizarEstado("ERROR: Tu navegador no soporta Geolocation.");
+    }
   </script>
 </body>
 </html>
