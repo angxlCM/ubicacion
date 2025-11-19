@@ -31,7 +31,7 @@
       })
       .then(response => {
         if (response.ok) {
-          actualizarEstado(`¡Ubicación enviada! Lat: ${data.latitud.toFixed(4)}`);
+          actualizarEstado(`¡Ubicación enviada! Lat: ${data.latitud.toFixed(4)}, Lng: ${data.longitud.toFixed(4)}, Hora: ${data.timestamp}`);
         } else {
           actualizarEstado('ERROR: Servidor Flask devolvió un código de error.');
         }
